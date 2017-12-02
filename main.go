@@ -159,9 +159,9 @@ func remoteHandler(w http.ResponseWriter, r *http.Request){
 			menu.CursorDown()
 		}
 	} else if v.Get("up") != ""{
-		up, err := strconv.Atoi(v.Get("down"))
+		up, err := strconv.Atoi(v.Get("up"))
 		check(err)
-		for i := 0; i > up; i++{
+		for i := 0; i < up; i++{
 			menu.CursorUp()
 		}
 	} else if v.Get("select") != ""{
