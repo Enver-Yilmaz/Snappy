@@ -7,11 +7,19 @@ import (
 	"os"
 	"net/http"
 	"strconv"
+	"github.com/buger/jsonparser"
+	"io/ioutil"
+	"net/url"
+	"os/exec"
 )
 
 /*
 	Snappy!
 */
+
+const allucKey = "???"
+const realDebridKey = "???"
+//TODO load these keys from a config too
 
 
 var menu  = Menu{nil, 0, false}
@@ -128,7 +136,9 @@ func searchMenu(){
 func tvSearchMenu(){
 	menu = NewMenu([]MenuItem{
 		NewMenuItem("Enter", func(){
-			//TODO API CALL AND NEW MENU HERE
+			if inputText != ""{
+				allucSearchMenu()
+			}
 		}),
 		NewMenuItem("Back", func(){
 			searchMenu()
@@ -138,10 +148,75 @@ func tvSearchMenu(){
 }
 
 /*
+*	IT WORKS!!!
+*	It's a little janky but it works!
+*/
+func allucSearchMenu(){
+	var searchLength = 2 //TODO read this from a config file or something
+
+	resp, err := http.Get("https://www.alluc.ee/api/search/stream/?apikey=" + allucKey + "&query=" + url.QueryEscape(inputText + " host:openload.co,thevideo.me,") + "&count=" + strconv.Itoa(searchLength) +"&from=0&getmeta=0")
+	check(err)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	check(err)
+
+	log.Println(string(body))
+
+	var menuItems = make([]MenuItem, searchLength)
+
+	i := 0
+	jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
+
+		title, err := jsonparser.GetString(value, "sourcetitle")
+		log.Println(title)
+		log.Println()
+
+		check(err)
+
+		hostURL, err := jsonparser.GetString(value, "hosterurls", "[0]", "url")
+		log.Println(hostURL)
+		check(err)
+
+		form := url.Values{}
+		form.Add("link", hostURL)
+
+		resp, err := http.PostForm("https://api.real-debrid.com/rest/1.0/unrestrict/link?auth_token="+realDebridKey, form)
+
+		check(err)
+
+		body, err := ioutil.ReadAll(resp.Body)
+
+		check(err)
+
+		streamURL, err := jsonparser.GetString(body, "download")
+
+		log.Println(streamURL)
+
+		menuItems[i] = NewMenuItem(title, func() {
+
+			out, err := exec.Command("vlc", streamURL).Output()
+
+			if err != nil {
+				panic(err)
+			}
+
+			log.Println(out)
+
+		})
+
+		i++
+	}, "result")
+
+	menu = NewMenu(menuItems)
+}
+
+/*
 	This is a very simple set up to allow control of Snappy from a HTTP request, it simply parses the queries and calls the respective menu functions
 	It's very likely to cause unexpected behavior if a user is inputting with something like a keyboard and the remote at the same time
 	Because the remote is asynchronously changing the menu, but it should be fine for now because that use case is unlikely (said every programmer ever)
 	//TODO likely find a smarter way to handle these race conditions
+	//TODO cache things like originally planned and add a back button
 
 	current commands:
 	down(int) move the menu down the amount e.g. ?down=1
@@ -174,6 +249,12 @@ func remoteHandler(w http.ResponseWriter, r *http.Request){
 		text := v.Get("text")
 		if menu.inputMode{
 			inputText = text
+		}
+	} else if v.Get("home") != ""{
+		isReturn, err := strconv.ParseBool(v.Get("home"))
+		check(err)
+		if isReturn{
+			mainMenu()
 		}
 	}
 
