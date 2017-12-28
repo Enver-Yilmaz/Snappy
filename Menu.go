@@ -1,101 +1,91 @@
 package main
 
 import (
-	"github.com/nsf/termbox-go"
-	//"log"
-	"log"
+	"sync"
 )
 
 /*
-	The menu, it currently just contains an array of menu items and int of the selected position but will likely expand in the future
+	The menu, it's really just a slice of menu items that allow packed with some built in methods to make it thread safe
 */
+
 
 type Menu struct {
 	Items []MenuItem
 	currentlySelected int
 	inputMode bool
+	lock *sync.Mutex
 }
 
 //gets you a new menu
+//should only be called once
 func NewMenu(items []MenuItem)(Menu){
-	return Menu{items, 0, false}
+	return Menu{items, 0, false, new(sync.Mutex)}
+}
+
+//appends items from the append channel
+func AppendMenu(items ...MenuItem){
+	menu.lock.Lock()
+	for _, item := range items{
+		menu.Items = append(menu.Items, item)
+	}
+	menu.lock.Unlock()
+	drawChan <- 1
+}
+
+func SetInputMode(inputMode bool){
+	menu.lock.Lock()
+	menu.inputMode = inputMode
+	menu.lock.Unlock()
+}
+
+//for building menus
+//because go doesn't have overloads or optional arguments
+func ClearAndAppend(items ...MenuItem){
+	ClearMenu() //yeah we're going to block
+	menu.lock.Lock()
+	for _, item := range items{
+		menu.Items = append(menu.Items, item)
+	}
+	menu.lock.Unlock()
+	drawChan <- 1
+}
+
+//clears the menu
+func ClearMenu(){
+	menu.lock.Lock()
+	menu.Items = []MenuItem{}
+	menu.lock.Unlock()
+	drawChan <- 1
 }
 
 //shift the menu cursor down
-func (menu *Menu)CursorDown(){
-	log.Println("curDown called!")
-	if menu.currentlySelected == len(menu.Items) - 1{
+func CursorDown(){
+	menu.lock.Lock()
+	if menu.currentlySelected == len(menu.Items) - 1 {
 		menu.currentlySelected = 0
 	} else {
 		menu.currentlySelected += 1
 	}
+	menu.lock.Unlock()
+	drawChan <- 1
 }
 
 //shift the menu cursor up
-func (menu *Menu)CursorUp(){
-	if menu.currentlySelected == 0{
+func CursorUp(){
+	menu.lock.Lock()
+	if menu.currentlySelected == 0 {
 		menu.currentlySelected = len(menu.Items) - 1
 	} else {
 		menu.currentlySelected -= 1
 	}
+	menu.lock.Unlock()
+	drawChan <- 1
 }
 
 //trigger the callback of the selected item
-func (menu *Menu)MenuSelect(){
-	menu.Items[menu.currentlySelected].callback()
-}
-
-//draw the menu
-//the scrolling is honestly a really dumb solution but I'm a really dumb guy
-func (menu *Menu)DrawMenu(yOffset int){
-	w, h := termbox.Size()
-
-
-	if !menu.inputMode{
-		chunkRadius := (h - yOffset) / 4
-
-
-		//draw the middle (selected item)
-		tbprint(w / 2 - len(menu.Items[menu.currentlySelected].text) / 2, h / 2 + yOffset / 2, termbox.ColorBlue, termbox.ColorBlack, menu.Items[menu.currentlySelected].text)
-
-		//get the lower chunk of other items
-		lowerChunk := menu.Items[max(0, menu.currentlySelected - chunkRadius) : menu.currentlySelected]
-
-		i := 0
-
-		//draw them
-		for item := range reverse(lowerChunk){
-			tbprint(w / 2 - len(item.text) / 2, h / 2 + yOffset / 2 - (i + 1) * 2, termbox.ColorWhite, termbox.ColorBlack, item.text)
-			i++
-		}
-
-		//get the upper chunk of other items
-		upperChunk := menu.Items[menu.currentlySelected + 1 : min(menu.currentlySelected + chunkRadius, len(menu.Items))]
-
-		//draw them
-		for i := len(upperChunk) - 1; i >= 0; i-- {
-			item := upperChunk[i]
-			tbprint(w / 2 - len(item.text) / 2, h / 2 + yOffset / 2 + (i + 1) * 2, termbox.ColorWhite, termbox.ColorBlack, item.text)
-		}
-	} else { // simple text input, needs to be better in the future TODO future me make this thing better
-		text := "Input text"
-		tbprint(w / 2 - len(text) / 2, h / 2 - 5, termbox.ColorWhite, termbox.ColorBlack, text)
-		tbprint(w / 2 - len(inputText) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, inputText)
-		tbprint(w / 2 - len("Input: ") - len(inputText) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, "Input: ")
-
-		for i, button := range menu.Items{
-
-			if i == menu.currentlySelected{
-				tbprint( w / 2 - len(button.text) / 2, h / 2 + 3 + i * 2, termbox.ColorBlue, termbox.ColorBlack, button.text)
-			} else {
-				tbprint( w / 2 - len(button.text) / 2, h / 2 + 3 + i * 2, termbox.ColorWhite,termbox.ColorBlack, button.text)
-			}
-
-		}
-
-	}
-
-
+func MenuSelect(){
+	go menu.Items[menu.currentlySelected].callback()
+	drawChan <- 1
 }
 
 //a weird way to reverse, thanks stackoverflow
