@@ -4,6 +4,7 @@ import (
 	"github.com/nsf/termbox-go"
 	"strconv"
 	"github.com/mattn/go-runewidth"
+	"os"
 )
 
 var logo = []string{
@@ -41,18 +42,18 @@ func TBinput(){
 				case termbox.KeyEnter:
 					MenuSelect()
 				case termbox.KeyBackspace:
-					if len(inputText) > 0 {
+					if len(inputText.Load()) > 0 {
 						//add a backspace here...
 					}
 				case termbox.KeySpace:
-					inputText += " "
+					inputText.Store(inputText.Load() + " ")
 				default:
 					if menu.inputMode{
 						str, err := strconv.Unquote(strconv.QuoteRune(ev.Ch))
 						if err != nil {
 							panic(err)
 						}
-						inputText += str
+						inputText.Store(inputText.Load() + str)
 					}
 				}
 			case termbox.EventResize:
@@ -72,11 +73,31 @@ func tbprint(x, y int, fg, bg termbox.Attribute, msg string) {
 	}
 }
 
+func TBcheck(err error){
+	if err != nil {
+		termbox.Clear(termbox.ColorBlack, termbox.ColorBlack)
+
+		w, h := termbox.Size()
+
+		tbprint(w / 2 - len(err.Error()) / 2, h / 2, termbox.ColorGreen, termbox.ColorBlack, err.Error())
+		termbox.Flush()
+		termbox.Close()
+		os.Exit(-1)
+	}
+}
+
+
 //draws snappy via termbox
 func (menu *Menu)TBdraw(){
 	var yOffset = 0
 	for range drawChan {
 		menu.lock.Lock()
+
+		//not sure how this happens actually, but oh well
+		if menu.currentlySelected > len(menu.Items){
+			menu.lock.Unlock()
+			continue
+		}
 
 		if len(menu.Items) == 0 {
 			menu.lock.Unlock()
@@ -121,8 +142,8 @@ func (menu *Menu)TBdraw(){
 		} else { // simple text input, needs to be better in the future TODO future me make this thing better
 			text := "Input text"
 			tbprint(w / 2 - len(text) / 2, h / 2 - 5, termbox.ColorWhite, termbox.ColorBlack, text)
-			tbprint(w / 2 - len(inputText) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, inputText)
-			tbprint(w / 2 - len("Input: ") - len(inputText) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, "Input: ")
+			tbprint(w / 2 - len(inputText.Load()) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, inputText.Load())
+			tbprint(w / 2 - len("Input: ") - len(inputText.Load()) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, "Input: ")
 
 			for i, button := range menu.Items{
 

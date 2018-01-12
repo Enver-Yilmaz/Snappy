@@ -5,10 +5,13 @@ import (
 	"io/ioutil"
 )
 
+//TODO: add a default file, oh but snappy wouldn't work anyway...
+
 type UserConfig struct {
 	AllucKey string
 	RealDebridKey string
 	TmdbKey string
+	AllucSearchLength int
 }
 
 func ParseConfigFile(path string)(config UserConfig){

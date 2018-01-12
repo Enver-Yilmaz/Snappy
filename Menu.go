@@ -54,6 +54,7 @@ func ClearAndAppend(items ...MenuItem){
 func ClearMenu(){
 	menu.lock.Lock()
 	menu.Items = []MenuItem{}
+	menu.currentlySelected = 0
 	menu.lock.Unlock()
 	drawChan <- 1
 }

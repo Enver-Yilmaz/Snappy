@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/nsf/termbox-go"
+	"go.uber.org/atomic"
 	"log"
 	"os"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"net/url"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 /*
@@ -18,17 +20,36 @@ import (
 */
 
 //TODO this note might be written somewhere else already, but I'd like to implement sqlite caching
+//probably still do
+
+const desktop = true
 
 var(
 	menu = NewMenu([]MenuItem{})
-	inputText = ""
-	inPlayback = false //todo: do something with this maybe
-	desktop = false
+	inputText = atomic.NewString("")
+	inPlayback = atomic.NewBool(false)
 	drawChan = make(chan int)
+	//the keys aren't atomic because they shouldn't ever change and concurrent reads should be fine
 	allucKey = ""
 	realDebridKey = ""
 	tmdbKey = ""
 	exPath = ""
+	AllucSearchLength = 4 //default ?
+	hosters = []string {
+		"openload.co",
+		"thevideo.me",
+		"bitporno.sx",
+		"cloudtime.to",
+		"datoporn.com",
+		"flashx.tv",
+		"wholecloud.net",
+		"novamov.com",
+		"auroravid.to",
+		"rapidvideo.ws",
+		"redtube.com",
+		"userscloud.com",
+		"youporn.com",
+	}
 )
 
 //init here just serves the purpose of unpacking the config file initializing the variables associated with it
@@ -46,6 +67,7 @@ func init(){
 	allucKey = config.AllucKey
 	realDebridKey = config.RealDebridKey
 	tmdbKey = config.TmdbKey
+	AllucSearchLength = config.AllucSearchLength
 }
 
 func main() {
@@ -65,11 +87,13 @@ func main() {
 	http.HandleFunc("/", remoteHandler)
 	go http.ListenAndServe(":8080", nil)
 
-	mainMenu()
+	MainMenu()
+
 	go menu.TBdraw()
 	drawChan <- 1
 	TBinput()
 }
+
 
 // Exists reports whether the named file or directory exists.
 func Exists(name string) bool {
@@ -82,10 +106,10 @@ func Exists(name string) bool {
 }
 
 //the main menu
-func mainMenu(){
+func MainMenu(){
 	go ClearAndAppend(
 		NewMenuItem("Search", func(){
-		searchMenu()
+			SearchMenu()
 		}),
 		NewMenuItem("Settings", func(){
 			log.Println("settings")
@@ -93,41 +117,58 @@ func mainMenu(){
 }
 
 //the search menu
-func searchMenu(){
+func SearchMenu(){
 	go ClearAndAppend(
 		NewMenuItem("Alluc", func(){
-			allucSearchMenu()
+			AllucSearchMenu()
+		}),
+		NewMenuItem("Twitch", func(){
+			TwitchSearchMenu()
 		}),
 		NewMenuItem("Back", func(){
-			mainMenu()
+			MainMenu()
 		}))
 }
 
 //the t.v. search menu
-//really just the alluc search menu, some inappropriate naming going on here
-//TODO i just started changing this but didn't finish the names that is
-func allucSearchMenu(){
+func AllucSearchMenu(){
 	go ClearAndAppend(
 		NewMenuItem("Enter", func(){
-			if inputText != ""{
-				allucResultMenu()
+			if inputText.Load() != ""{
+				AllucResultMenu()
+				go SetInputMode(false)
 			}
 		}),
 		NewMenuItem("Back", func(){
-			searchMenu()
 			go SetInputMode(false)
+			SearchMenu()
 		}))
 	go SetInputMode(true)
 }
 
+func TwitchSearchMenu(){
+	go ClearAndAppend(
+		NewMenuItem("Enter", func(){
+			if inputText.Load() != "" {
+				TwitchStreamsMenu(inputText.Load())
+				go SetInputMode(false)
+			}
+		}),
+		NewMenuItem("Back", func(){
+			MainMenu()
+			go SetInputMode(false)
+		}),
+	)
+	go SetInputMode(true)
+}
+
 //displays the results of an alluc search
-func allucResultMenu(){
-	var searchLength = 8 //TODO read this from a config file or something
+func AllucResultMenu(){
 	go SetInputMode(false)
 	go ClearMenu()
 	//note that the search length is most optimal in multiples of 4 given the rpi3 quad core cpu
 
-	resp, err := http.Get("https://www.alluc.ee/api/search/stream/?apikey=" + allucKey + "&query=" + url.QueryEscape(inputText + " host:openload.co,thevideo.me,bitporno.sx,cloudtime.to,dailymotion.com,datoporn.com,flashx.tv,wholecloud.net,novamov.com,auroravid.to,nowvideo.co,rapidvideo.ws,redtube.com,userscloud.com,videoweed.com,vimeo.com,youporn.com") + "&count=" + strconv.Itoa(searchLength) +"&from=0&getmeta=0")
+	resp, err := http.Get("https://www.alluc.ee/api/search/stream/?apikey=" + allucKey + "&query=" + url.QueryEscape(inputText.Load()) + " host:" + strings.Join(hosters, ",") + "&count=" + strconv.Itoa(AllucSearchLength) + "&from=0&getmeta=0")
 	check(err)
 
 	body, err := ioutil.ReadAll(resp.Body)
@@ -139,17 +180,13 @@ func allucResultMenu(){
 	if status, err := jsonparser.GetString(body, "status"); status == "error" || err != nil {
 		go ClearAndAppend(
 			NewMenuItem("something went wrong :( Maybe there weren't any results? (click to return)", func() {
-				allucSearchMenu()
+				AllucSearchMenu()
 			}))
 		return
 	}
 
-	//TODO split this into seperate threads rather than for loop style
-	//split into chunks of 4 if possible and thread out from there
-	//given I think this is pinning the cpu most most right now, because we're blocking on real-debrid unrestricting
-
 	go AppendMenu(NewMenuItem("Return to search", func(){
-		allucSearchMenu()
+		AllucSearchMenu()
 	}))
 
 	jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
@@ -173,11 +210,7 @@ func allucResultMenu(){
 }
 
 func unrestrict(link string, title string){
-	//blockChan <- 1
 	go func(){
-		//defer func(){
-			//<-blockChan
-		//}()
 
 		form := url.Values{}
 		form.Add("link", link)
@@ -189,12 +222,11 @@ func unrestrict(link string, title string){
 
 		check(err)
 
-		log.Println(string(body))
-
 		streamURL, err := jsonparser.GetString(body, "download")
 
 		if err != nil {
 			log.Println("couldn't debrid unrestrict this link: " + link)
+			log.Println("Error body:" + string(body))
 		} else {
 			log.Println(streamURL)
 
@@ -207,7 +239,7 @@ func unrestrict(link string, title string){
 					command := exec.Command("vlc", streamURL)
 					err = command.Run()
 				}
-				inPlayback = true
+				inPlayback.Store(true)
 			}))
 		}
 
@@ -220,7 +252,6 @@ func unrestrict(link string, title string){
 	This is a very simple set up to allow control of Snappy from a HTTP request, it simply parses the queries and calls the respective menu functions
 	It's very likely to cause unexpected behavior if a user is inputting with something like a keyboard and the remote at the same time
 	Because the remote is asynchronously changing the menu, but it should be fine for now because that use case is unlikely (said every programmer ever)
-	//TODO cache things like originally planned and add a back button
 
 	current commands:
 	down(int) move the menu down the amount e.g. ?down=1
@@ -254,13 +285,13 @@ func remoteHandler(w http.ResponseWriter, r *http.Request){
 	} else if v.Get("text") != ""{
 		text := v.Get("text")
 		if menu.inputMode{
-			inputText = text
+			inputText.Store(text)
 		}
 	} else if v.Get("home") != ""{
 		isReturn, err := strconv.ParseBool(v.Get("home"))
 		check(err)
 		if isReturn{
-			mainMenu()
+			MainMenu()
 			go SetInputMode(false)
 		}
 	} else if v.Get("omxcommand") != ""{
