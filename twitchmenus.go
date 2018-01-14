@@ -20,6 +20,22 @@ const tokenApi = "https://api.twitch.tv/api/channels/%s/access_token?client_id=%
 const playlistApi = "https://usher.ttvnw.net/api/channel/hls/%s.m3u8?token=%s&sig=%s&allow_source=true&player_backend=html5"
 
 
+func TwitchSearchMenu(){
+	go ClearAndAppend(
+		NewMenuItem("Enter", func(){
+			if inputText.Load() != "" {
+				TwitchStreamsMenu(inputText.Load())
+				go SetInputMode(false) //i'm actually not sure if there is any reason to spawn another goroutine for this TODO
+			}
+		}),
+		NewMenuItem("Back", func(){
+			MainMenu()
+			go SetInputMode(false)
+		}),
+	)
+	go SetInputMode(true)
+}
+
 func TwitchStreamsMenu(channel string){
 	resp, err := http.Get(fmt.Sprintf(tokenApi, channel, twitchClientID))
 
@@ -105,7 +121,7 @@ func TwitchStreamsMenu(channel string){
 		}
 		log.Println(variant.URI)
 		log.Println(variant.Video)
-		AppendMenu(NewMenuItem(variant.Video, captureURI(variant.URI)))
+		AppendMenu(NewMenuItem(variant.Video, captureURI(variant.URI))) //TODO consider using this style more, I kinda like it
 	}
 	AppendMenu(NewMenuItem("Return", func(){
 		TwitchSearchMenu()
