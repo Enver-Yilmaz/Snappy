@@ -109,8 +109,10 @@ func (menu *Menu)TBdraw(){
 		//todo customization via config
 		termbox.Clear(termbox.ColorBlack, termbox.ColorBlack)
 
-		for i, line := range logo {
-			tbprint(w / 2 - len(line) / 2, i, termbox.ColorGreen, termbox.ColorBlack, line)
+		if drawLogo.Load() {
+			for i, line := range logo {
+				tbprint(w / 2 - len(line) / 2, i, termbox.ColorGreen, termbox.ColorBlack, line)
+			}
 		}
 
 		if !menu.inputMode{
@@ -140,7 +142,7 @@ func (menu *Menu)TBdraw(){
 				tbprint(w / 2 - len(item.text) / 2, h / 2 + yOffset / 2 + (i + 1) * 2, termbox.ColorWhite, termbox.ColorBlack, item.text)
 			}
 		} else { // simple text input, needs to be better in the future TODO future me make this thing better
-			text := "Input text"
+			text := inputMenuTitle.Load()
 			tbprint(w / 2 - len(text) / 2, h / 2 - 5, termbox.ColorWhite, termbox.ColorBlack, text)
 			tbprint(w / 2 - len(inputText.Load()) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, inputText.Load())
 			tbprint(w / 2 - len("Input: ") - len(inputText.Load()) / 2, h / 2, termbox.ColorWhite, termbox.ColorBlack, "Input: ")

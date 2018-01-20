@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"github.com/buger/jsonparser"
 	"log"
-	"os/exec"
 	"github.com/nsf/termbox-go"
 )
 
@@ -39,14 +38,7 @@ func unrestrict(link string, title string){
 			log.Println(streamURL)
 
 			go AppendMenu(NewMenuItem(title, func() {
-
-				if !desktop{
-					command := exec.Command("omxplayer", "-b", "-o", "hdmi", "--live", streamURL)
-					err = command.Run()
-				} else {
-					command := exec.Command("vlc", streamURL)
-					err = command.Run()
-				}
+				PlayLink(streamURL)
 				inPlayback.Store(true)
 			}))
 		}

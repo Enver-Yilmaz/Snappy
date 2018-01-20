@@ -22,6 +22,26 @@ func NewMenu(items []MenuItem)(Menu){
 	return Menu{items, 0, false, new(sync.Mutex)}
 }
 
+//Creates a new input menu with the given title and callbacks
+//it's much cleaner than creating it by hand
+func InputMenu(title string, onclick func(), back func()){
+	inputMenuTitle.Store(title)
+	SetInputMode(true)
+	ClearAndAppend(
+		NewMenuItem("Enter", func(){
+			if inputText.Load() != ""{
+				SetInputMode(false)	//no more input
+				ClearMenu()						//clear the enter and back buttons
+				onclick()						//call the given function
+			}
+		}),
+		NewMenuItem("Back", func(){
+			SetInputMode(false)
+			ClearMenu()
+			back()
+		}))
+}
+
 //appends items from the append channel
 func AppendMenu(items ...MenuItem){
 	menu.lock.Lock()
@@ -85,8 +105,10 @@ func CursorUp(){
 
 //trigger the callback of the selected item
 func MenuSelect(){
-	go menu.Items[menu.currentlySelected].callback()
-	drawChan <- 1
+	if len(menu.Items) >= 1 { //just in case we get into a weird state where the user can select while the menu is cleared (yes it has happened)
+		go menu.Items[menu.currentlySelected].callback()
+		drawChan <- 1
+	}
 }
 
 //a weird way to reverse, thanks stackoverflow

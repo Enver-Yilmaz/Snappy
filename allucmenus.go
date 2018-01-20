@@ -15,31 +15,23 @@ import (
 
 //the t.v. search menu
 func AllucSearchMenu(){
-	go ClearAndAppend(
-		NewMenuItem("Enter", func(){
-			if inputText.Load() != ""{
-				AllucResultMenu()
-				go SetInputMode(false)
-			}
-		}),
-		NewMenuItem("Back", func(){
-			go SetInputMode(false)
-			SearchMenu()
-		}))
-	go SetInputMode(true)
+	go InputMenu("Enter a show/movie that you want to find e.g. the simpsons s04e11", func(){
+		SetInputMode(false)	//definitely set this BEFORE we start searching otherwise Snappy just looks weird... Maybe add a loading screen?
+		AllucResultMenu(AllucSearchMenu)
+	}, SearchMenu)
 }
 
 //displays the results of an alluc search
-func AllucResultMenu(){
-	go SetInputMode(false)
+func AllucResultMenu(returnTo func()){
 	go ClearMenu()
 	//note that the search length is most optimal in multiples of 4 given the rpi3 quad core cpu
 
-	resp, err := http.Get("https://www.alluc.ee/api/search/stream/?apikey=" + allucKey + "&query=" + url.QueryEscape(inputText.Load()) + " host:" + strings.Join(hosters, ",") + "&count=" + strconv.Itoa(AllucSearchLength) + "&from=0&getmeta=0")
+	resp, err := http.Get("https://www.alluc.ee/api/search/stream/?apikey=" + allucKey + "&query=" + url.QueryEscape(inputText.Load() + " host:" + strings.Join(hosters, ",")) + "&count=" + strconv.Itoa(AllucSearchLength) + "&from=0&getmeta=0")
+	log.Println("https://www.alluc.ee/api/search/stream/?apikey=" + allucKey + "&query=" + url.QueryEscape(inputText.Load() + " host:" + strings.Join(hosters, ",")) + "&count=" + strconv.Itoa(AllucSearchLength) + "&from=0&getmeta=0")
 
 	if err != nil {
 		go ClearAndAppend(NewMenuItem("couldn't complete the alluc API request, check your connection and API keys (click to return)", func(){
-			AllucSearchMenu()
+			returnTo()
 		}))
 	}
 
@@ -51,16 +43,18 @@ func AllucResultMenu(){
 		log.Fatal(err)
 	}
 
+	log.Println(string(body))
+
 	if status, err := jsonparser.GetString(body, "status"); status == "error" || err != nil {
 		go ClearAndAppend(
 			NewMenuItem("something went wrong :( Maybe there weren't any results? (click to return)", func() {
-				AllucSearchMenu()
+				returnTo()
 			}))
 		return
 	}
 
 	go AppendMenu(NewMenuItem("Return to search", func(){
-		AllucSearchMenu()
+		returnTo()
 	}))
 
 	jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
@@ -74,16 +68,18 @@ func AllucResultMenu(){
 			}
 		}
 
-		hostURL, err := jsonparser.GetString(value, "hosterurls", "[0]", "url")
+		hostURL, err := jsonparser.GetString(value, "hosterurls", "[0]", "url") //it doesn't seem like the hosterurls array ever has more than one element but i'll keep an eye on the logs
 
 		if err != nil {
 			log.Printf("The following alluc result was missing a hosterurl?: %s", string(body))
 		} else {
-			if containsHoster(hostURL, hosters){ //I think this will prevent some time wasting on false links (thanks Alluc) :(
+			//TODO refactor this to follow the issue on github
+			unrestrict(hostURL, title)
+/*			if containsHoster(hostURL, hosters) || strings.Contains(hostURL, "rapidvideo") { //I think this will prevent some time wasting on false links (thanks Alluc) :(
 				unrestrict(hostURL, title)
 			} else {
 				log.Printf("The host URL(%s) didn't contain any known hoster", hostURL)
-			}
+			}*/
 		}
 	}, "result")
 }

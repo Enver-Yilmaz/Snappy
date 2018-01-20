@@ -21,7 +21,9 @@ const desktop = true
 var(
 	menu = NewMenu([]MenuItem{})
 	inputText = atomic.NewString("")
+	inputMenuTitle = atomic.NewString("")
 	inPlayback = atomic.NewBool(false)
+	drawLogo = atomic.NewBool(true)
 	drawChan = make(chan int)
 	//the keys aren't atomic because they shouldn't ever change and concurrent reads should be fine
 	allucKey = ""

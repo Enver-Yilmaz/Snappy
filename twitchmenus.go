@@ -3,39 +3,29 @@ package main
 import (
 	"net/http"
 	"log"
-	//"math/rand"
 	"github.com/buger/jsonparser"
 	"io/ioutil"
 	"fmt"
-	//"strconv"
 	"github.com/grafov/m3u8"
-	"os/exec"
-	//"net/url"
 	"net/url"
 	"github.com/nsf/termbox-go"
+	"strings"
 )
 
 const twitchClientID = "dlpf1993tub698zw0ic6jlddt9e893"
 const tokenApi = "https://api.twitch.tv/api/channels/%s/access_token?client_id=%s"
 const playlistApi = "https://usher.ttvnw.net/api/channel/hls/%s.m3u8?token=%s&sig=%s&allow_source=true&player_backend=html5"
 
-
+//Let's the user input the channel they want to search for on Twitch
 func TwitchSearchMenu(){
-	go ClearAndAppend(
-		NewMenuItem("Enter", func(){
-			if inputText.Load() != "" {
-				TwitchStreamsMenu(inputText.Load())
-				go SetInputMode(false) //i'm actually not sure if there is any reason to spawn another goroutine for this TODO
-			}
-		}),
-		NewMenuItem("Back", func(){
-			MainMenu()
-			go SetInputMode(false)
-		}),
-	)
-	go SetInputMode(true)
+	go InputMenu("Enter the twitch channel you want to watch e.g. vinesauce", func(){
+		TwitchStreamsMenu(strings.ToLower(inputText.Load()))
+	}, func(){
+		SearchMenu()
+	})
 }
 
+//uses the unoffical twitch endpoints to find and parse the m3u8 file that twitch uses for its livestreams
 func TwitchStreamsMenu(channel string){
 	resp, err := http.Get(fmt.Sprintf(tokenApi, channel, twitchClientID))
 
@@ -101,24 +91,17 @@ func TwitchStreamsMenu(channel string){
 
 	captureURI := func(uri string) func() {	//so we can use it while in a range loop of the playlist
 		return func(){
-			if !desktop {
-				command := exec.Command("omxplayer", "-b", "-o", "hdmi", "--live", uri)
-				log.Println(uri)
-				err = command.Run()
-			} else {
-				command := exec.Command("vlc", uri)
-				log.Println(uri)
-				err = command.Run()
-			}
+			PlayLink(uri)
 			inPlayback.Store(true)
 		}
 	}
 
 	for _, variant := range p.(*m3u8.MasterPlaylist).Variants {
 
-		if variant.Video == "chunked"{
+		if variant.Video == "chunked" { 	//following twitch styling
 			variant.Video = "Source"
 		}
+
 		log.Println(variant.URI)
 		log.Println(variant.Video)
 		AppendMenu(NewMenuItem(variant.Video, captureURI(variant.URI))) //TODO consider using this style more, I kinda like it
