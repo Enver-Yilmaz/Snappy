@@ -14,6 +14,8 @@ func MainMenu(){
 			drawLogo.Store(false)
 			SearchMenu()
 		}),
+		NewMenuItem("Twitch", TwitchSearchMenu),
+		NewMenuItem("Youtube", YoutubeMenu),
 		NewMenuItem("Settings", func(){
 			log.Println("settings")
 		}))
@@ -22,16 +24,7 @@ func MainMenu(){
 //the search menu
 func SearchMenu(){
 	go ClearAndAppend(
-		NewMenuItem("The Movie Database", func(){
-			TMBDMenu()
-		}),
-		NewMenuItem("Alluc", func(){
-			AllucSearchMenu()
-		}),
-		NewMenuItem("Twitch", func(){
-			TwitchSearchMenu()
-		}),
-		NewMenuItem("Back", func(){
-			MainMenu()
-		}))
+		NewMenuItem("The Movie Database", TMDBMenu),
+		NewMenuItem("Alluc", AllucSearchMenu),
+		NewMenuItem("Back", MainMenu))
 }

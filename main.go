@@ -30,7 +30,7 @@ var(
 	realDebridKey = ""
 	tmdbKey = ""
 	exPath = ""
-	AllucSearchLength = 4 //default ?
+	AllucSearchLength = 4 //the amount of results to be pulled from Alluc
 	hosters = []string {
 		"openload.co",
 		"thevideo.me",

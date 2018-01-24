@@ -14,7 +14,7 @@ const tmdbapi = "https://api.themoviedb.org/3/"
 
 
 //Generic TMDB menu that splits out into tv and movie search
-func TMBDMenu(){
+func TMDBMenu(){
 	go ClearAndAppend(
 		NewMenuItem("T.V. Show", TMDBTVSearch),
 		NewMenuItem("Movie", TMDBMovieSearch),
@@ -25,14 +25,14 @@ func TMBDMenu(){
 func TMDBTVSearch(){
 	go InputMenu("Enter the name of a T.V. show that you want to find e.g. Seinfeld", func(){
 		TMDBSearch("search/tv", inputText.Load())
-	}, TMBDMenu)
+	}, TMDBMenu)
 }
 
 //allows the user to search TMDB for a movie
 func TMDBMovieSearch(){
 	go InputMenu("Enter the name of a movie that you want to find e.g. Requiem for a Dream", func(){
 		TMDBSearch("search/movie", inputText.Load())
-	}, TMBDMenu)
+	}, TMDBMenu)
 }
 
 //TODO maybe add pages
@@ -44,7 +44,7 @@ func TMDBSearch(route string, searchString string){
 	log.Println(tmdbapi + route + finalPart)
 
 	if err != nil {
-		ClearAndAppend(NewMenuItem("Failed to connect to the TMDB API (click to return)", TMBDMenu))
+		ClearAndAppend(NewMenuItem("Failed to connect to the TMDB API (click to return)", TMDBMenu))
 		return
 	}
 

@@ -25,7 +25,7 @@ func TwitchSearchMenu(){
 	})
 }
 
-//uses the unoffical twitch endpoints to find and parse the m3u8 file that twitch uses for its livestreams
+//uses the unofficial twitch endpoints to find and parse the m3u8 file that twitch uses for its livestreams
 func TwitchStreamsMenu(channel string){
 	resp, err := http.Get(fmt.Sprintf(tokenApi, channel, twitchClientID))
 
