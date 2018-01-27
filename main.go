@@ -16,10 +16,11 @@ import (
 //TODO this note might be written somewhere else already, but I'd like to implement sqlite caching
 //probably still do
 
-const desktop = true
+const desktop = false
 
 var(
 	menu = NewMenu([]MenuItem{})
+	lastPosition = atomic.NewInt32(0)
 	inputText = atomic.NewString("")
 	inputMenuTitle = atomic.NewString("")
 	inPlayback = atomic.NewBool(false)

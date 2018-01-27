@@ -7,7 +7,7 @@ import (
 
 func YoutubeMenu(){
 	ClearMenu()
-	go InputMenu("Enter a youtube link that you want to watch e.g. https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+	go InputMenu("Enter a youtube link that you want to watch e.g. https://youtu.be/jAXioRNYy4s",
 		func() {
 
 			y := NewYoutube(true)
@@ -19,7 +19,14 @@ func YoutubeMenu(){
 				return
 			}
 
-			PlayLink(y.GetDownloadUrl())
+			//this should fix the bug, I think webm is the only type that youtube serves that omxplayer doesn't support
+			for _, stream := range y.StreamList {
+				if stream["type"] != "video/webm" {
+					PlayLink(stream["url"])
+					break
+				}
+			}
+
 			YoutubeMenu()
 
 		}, MainMenu)

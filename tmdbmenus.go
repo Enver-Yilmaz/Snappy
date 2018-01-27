@@ -56,8 +56,6 @@ func TMDBSearch(route string, searchString string){
 		log.Fatal(err)
 	}
 
-	log.Println(string(body))
-
 	ClearMenu()
 
 	jsonparser.ArrayEach(body, func(value []byte, dataType jsonparser.ValueType, offset int, err error){
@@ -97,10 +95,11 @@ func TMDBSearch(route string, searchString string){
 	}, "results")
 
 	if route == "search/tv" {
-		AppendMenu(NewMenuItem("return to search", TMDBTVSearch))
+		go AppendMenu(NewMenuItem("return to search", TMDBTVSearch))
 	} else {
-		AppendMenu(NewMenuItem("return to search", TMDBMovieSearch))
+		go AppendMenu(NewMenuItem("return to search", TMDBMovieSearch))
 	}
+
 }
 
 //builds a menu for the given TMDB ID
@@ -124,8 +123,6 @@ func TMDBTVSeasonMenu(tvId int, name string) {
 		termbox.Close()
 		log.Fatal(err)
 	}
-
-	log.Println(string(body))
 
 	ClearMenu()
 
@@ -186,7 +183,6 @@ func TMDBTVEpisodeMenu(tvId, seasonNumber int, showname string) {
 		log.Fatal(err)
 	}
 
-	log.Println(string(body))
 
 	ClearMenu()
 
@@ -216,6 +212,11 @@ func TMDBTVEpisodeMenu(tvId, seasonNumber int, showname string) {
 		AppendMenu(NewMenuItem(title, func(){
 			allucString := fmt.Sprintf("%s season %d episode %d", showname, seasonNumber, int(episodeNumber))
 			inputText.Store(allucString)
+
+			menu.lock.Lock()
+			lastPosition.Store(int32(menu.currentlySelected))
+			menu.lock.Unlock()
+
 			AllucResultMenu(func(){
 				ClearMenu()
 				TMDBTVEpisodeMenu(tvId, seasonNumber, showname)
@@ -223,4 +224,11 @@ func TMDBTVEpisodeMenu(tvId, seasonNumber int, showname string) {
 		}))
 
 	}, "episodes")
+
+	if lastPosition.Load() != 0 {
+		menu.lock.Lock()
+		menu.currentlySelected = int(lastPosition.Load())
+		menu.lock.Unlock()
+		drawChan <- 1
+	}
 }

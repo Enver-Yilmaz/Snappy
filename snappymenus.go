@@ -1,8 +1,5 @@
 package main
 
-import "log"
-
-
 //	Contains Snappy specific menus, really just generic menus like search and settings
 
 
@@ -15,10 +12,7 @@ func MainMenu(){
 			SearchMenu()
 		}),
 		NewMenuItem("Twitch", TwitchSearchMenu),
-		NewMenuItem("Youtube", YoutubeMenu),
-		NewMenuItem("Settings", func(){
-			log.Println("settings")
-		}))
+		NewMenuItem("Youtube", YoutubeMenu))
 }
 
 //the search menu
